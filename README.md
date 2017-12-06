@@ -33,6 +33,7 @@ bin/stop-akita.sh
 
 ```json
 {
+  "_TABLENAME": "users",
   "_EVENT":"INSERT",
   "_SCHEMA":{
     "name":"varchar(32)",

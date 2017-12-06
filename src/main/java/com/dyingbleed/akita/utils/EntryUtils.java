@@ -23,8 +23,13 @@ public final class EntryUtils {
      * @return
      */
     public static List<String> toJSON(Entry entry) throws InvalidProtocolBufferException {
+        String tableName = entry.getHeader().getTableName();
+
         RowChange rowChange = RowChange.parseFrom(entry.getStoreValue());
-        return parseRowChange(rowChange).stream().map(jo -> jo.toJSONString()).collect(Collectors.toList());
+        return parseRowChange(rowChange).stream().map(jo -> {
+            jo.put("_TABLENAME", tableName);
+            return jo.toJSONString();
+        }).collect(Collectors.toList());
     }
 
     private static List<JSONObject> parseRowChange(RowChange rowChange) {
