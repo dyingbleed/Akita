@@ -20,11 +20,27 @@ mvn clean package
 启动
 
 ```bash
-bin/start-alita.sh
+bin/start-akita.sh
 ```
 
 停止
 
 ```bash
-bin/stop-alita.sh
+bin/stop-akita.sh
+```
+
+消息
+
+```json
+{
+  "_EVENT":"INSERT",
+  "_SCHEMA":{
+    "name":"varchar(32)",
+    "sex":"char(1)",
+    "birthday":"date"
+  },
+  "name":"Tom",
+  "sex":"m",
+  "birthday":"1997-12-06"
+}
 ```
