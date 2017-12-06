@@ -6,9 +6,12 @@ import com.alibaba.otter.canal.protocol.CanalEntry.*;
 import com.alibaba.otter.canal.protocol.Message;
 import com.dyingbleed.akita.source.AkitaSource;
 import com.dyingbleed.akita.source.AkitaSourceCallback;
+import com.dyingbleed.akita.utils.EntryUtils;
 import com.google.common.collect.Lists;
 import com.google.common.net.HostAndPort;
 import org.apache.commons.lang.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.net.InetSocketAddress;
 import java.util.List;
@@ -23,6 +26,8 @@ public class CanalSource implements AkitaSource {
      * */
 
     private static final String SERVER_SEPERATOR = ",";
+
+    private static final Logger logger = LoggerFactory.getLogger(CanalSource.class);
 
 
     /*
@@ -60,6 +65,7 @@ public class CanalSource implements AkitaSource {
 
         if (this.canalServers.contains(SERVER_SEPERATOR)) {
             // 集群模式
+            logger.info("使用 Canal Client 集群模式");
             List<InetSocketAddress> hosts = Lists.newLinkedList();
             for (String server: StringUtils.split(this.canalServers, SERVER_SEPERATOR)) {
                 HostAndPort hostAndPort = HostAndPort.fromString(server);
@@ -71,8 +77,10 @@ public class CanalSource implements AkitaSource {
                     canalUsername,
                     canalPassword
             );
+            logger.info("创建 Canal 连接：{}, {}, {}, {}", this.canalServers, this.canalDestination, this.canalUsername, this.canalPassword);
         } else {
             // 单机模式
+            logger.info("使用 Canal Client 单机模式");
             HostAndPort hostAndPort = HostAndPort.fromString(this.canalServers);
             canalConnector = CanalConnectors.newSingleConnector(
                     new InetSocketAddress(hostAndPort.getHostText(), hostAndPort.getPortOrDefault(11111)),
@@ -80,10 +88,14 @@ public class CanalSource implements AkitaSource {
                     canalUsername,
                     canalPassword
             );
+            logger.info("创建 Canal 连接：{}, {}, {}, {}", this.canalServers, this.canalDestination, this.canalUsername, this.canalPassword);
         }
 
+        logger.info("开始连接 Canal Server");
         canalConnector.connect();
+        logger.info("订阅 Canal Server {}", canalFilter);
         canalConnector.subscribe(canalFilter);
+        logger.info("回滚 Canal Server");
         canalConnector.rollback();
 
         this.canalConnector = canalConnector;
@@ -95,10 +107,16 @@ public class CanalSource implements AkitaSource {
         long messageId = message.getId();
 
         if (messageId != -1 && message.getEntries().size() > 0) {
+            logger.info("收到 Canal Server 消息 {}", messageId);
             for (Entry entry: message.getEntries()) {
                 if (entry.getEntryType() == EntryType.TRANSACTIONBEGIN || entry.getEntryType() == EntryType.TRANSACTIONEND) continue;
 
-                callback.processEntry(entry);
+                try {
+                    String key = entry.getHeader().getTableName();
+                    for (String value: EntryUtils.toJSON(entry)) callback.processEntry(key, value);
+                } catch (Exception e) {
+                    logger.error("CanalSource 处理信息失败", e);
+                }
             }
         }
 

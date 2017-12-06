@@ -1,13 +1,12 @@
 package com.dyingbleed.akita;
 
-import com.alibaba.fastjson.JSONObject;
 import com.alibaba.otter.canal.common.utils.AddressUtils;
 import com.dyingbleed.akita.sink.AkitaSink;
 import com.dyingbleed.akita.sink.impl.KafkaSink;
 import com.dyingbleed.akita.source.AkitaSource;
 import com.dyingbleed.akita.source.impl.CanalSource;
-import com.dyingbleed.akita.utils.EntryUtils;
-import com.google.protobuf.InvalidProtocolBufferException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Properties;
 
@@ -15,6 +14,12 @@ import java.util.Properties;
  * Created by 李震 on 2017/12/4.
  */
 public final class Akita implements Runnable {
+
+    /*
+     * 常量
+     * */
+
+    private static final Logger logger = LoggerFactory.getLogger(Akita.class);
 
     /*
      * Source
@@ -70,24 +75,21 @@ public final class Akita implements Runnable {
         /*
          * 初始化
          * */
-
+        logger.info("Akita 初始化");
         this.source.init();
-
         this.sink.init();
 
         /*
          * 主循环
          * */
+        logger.info("Akita 启动");
         Boolean running = true;
         while (running) {
-            this.source.pull(1000, (entry) -> {
+            this.source.pull(1000, (key, value) -> {
                 try {
-                    JSONObject json = EntryUtils.toJSON(entry);
-                    String key = json.getJSONObject("header").getString("tableName");
-                    this.sink.push(key, json.toJSONString());
+                    this.sink.push(key, value);
                 } catch (Exception e) {
-                    e.printStackTrace();
-                    // TODO: 2017/12/5 处理失败，丢弃
+                    logger.error("Akita 发送消息失败：{}", e);
                 }
             });
         }
@@ -95,9 +97,8 @@ public final class Akita implements Runnable {
         /*
          * 销毁
          * */
-
+        logger.info("Akita 退出");
         this.source.destroy();
-
         this.sink.destroy();
     }
 }

@@ -3,6 +3,8 @@ package com.dyingbleed.akita.sink.impl;
 import com.dyingbleed.akita.sink.AkitaSink;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Properties;
 
@@ -10,6 +12,12 @@ import java.util.Properties;
  * Created by 李震 on 2017/12/4.
  */
 public class KafkaSink implements AkitaSink {
+
+    /*
+     * 常量
+     * */
+
+    private static final Logger logger = LoggerFactory.getLogger(KafkaSink.class);
 
     /*
      * Kafka 参数
@@ -39,6 +47,7 @@ public class KafkaSink implements AkitaSink {
         properties.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer");
 
         this.kafkaProducer = new KafkaProducer<>(properties);
+        logger.info("创建 Kafka 生产者：{}", this.servers);
     }
 
     @Override

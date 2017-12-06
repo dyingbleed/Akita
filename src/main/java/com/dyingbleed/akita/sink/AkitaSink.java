@@ -1,7 +1,5 @@
 package com.dyingbleed.akita.sink;
 
-import java.util.List;
-
 /**
  * Created by 李震 on 2017/12/4.
  */

@@ -1,9 +1,12 @@
 package com.dyingbleed.akita.utils;
 
-import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import com.alibaba.otter.canal.protocol.CanalEntry.*;
+import com.google.common.collect.Lists;
 import com.google.protobuf.InvalidProtocolBufferException;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Created by 李震 on 2017/12/5.
@@ -16,68 +19,49 @@ public final class EntryUtils {
      *
      * 参考：<a href="https://github.com/alibaba/canal/blob/master/protocol/src/main/java/com/alibaba/otter/canal/protocol/EntryProtocol.proto">EntryProtocol.proto</a>
      *
-     * @param entry Canal Entry
-     * @return JSON
+     * @param entry
+     * @return
      */
-    public static JSONObject toJSON(Entry entry) throws InvalidProtocolBufferException {
-        JSONObject jo = new JSONObject();
-
-        // 协议头部信息
-        Header header = entry.getHeader();
-        jo.put("header", parseHeader(header));
-
-
+    public static List<String> toJSON(Entry entry) throws InvalidProtocolBufferException {
         RowChange rowChange = RowChange.parseFrom(entry.getStoreValue());
-        jo.put("storeValue", parseRowChange(rowChange));
-
-        return jo;
+        return parseRowChange(rowChange).stream().map(jo -> jo.toJSONString()).collect(Collectors.toList());
     }
 
-    private static JSONObject parseHeader(Header header) {
-        JSONObject jo = new JSONObject();
-
-        jo.put("tableName", header.getTableName());
-        // TODO: 2017/12/5  暂时只解析表名
-
-        return jo;
-    }
-
-    private static JSONObject parseRowChange(RowChange rowChange) {
-        JSONObject jo = new JSONObject();
+    private static List<JSONObject> parseRowChange(RowChange rowChange) {
+        List<JSONObject> r = Lists.newLinkedList();
 
         EventType eventType = rowChange.getEventType();
-        jo.put("eventType", eventType.toString());
 
-        JSONArray ja = new JSONArray();
         for (RowData rowData: rowChange.getRowDatasList()) {
+            JSONObject data = new JSONObject();
+            JSONObject schema = new JSONObject();
+
             if (eventType == EventType.INSERT) {
                 for (Column column: rowData.getAfterColumnsList()) {
-                    ja.add(parseColumn(column));
+                    data.put(column.getName(), column.getValue());
+                    schema.put(column.getName(), column.getMysqlType());
                 }
             } else if (eventType == EventType.DELETE) {
                 for (Column column: rowData.getBeforeColumnsList()) {
-                    ja.add(parseColumn(column));
+                    data.put(column.getName(), column.getValue());
+                    schema.put(column.getName(), column.getMysqlType());
                 }
             } else if (eventType == EventType.UPDATE) {
                 for (Column column: rowData.getAfterColumnsList()) {
-                    ja.add(parseColumn(column));
+                    data.put(column.getName(), column.getValue());
+                    schema.put(column.getName(), column.getMysqlType());
                 }
             }
+
+            // 事件类型
+            data.put("_EVENT", eventType.name());
+            // 表结构
+            data.put("_SCHEMA", schema);
+
+            r.add(data);
         }
-        jo.put("rowDatas", ja);
 
-        return jo;
-    }
-
-    private static JSONObject parseColumn(Column column) {
-        JSONObject jo = new JSONObject();
-
-        jo.put("index", column.getIndex());
-        jo.put("name", column.getName());
-        jo.put("value", column.getValue());
-        jo.put("sqlType", column.getSqlType());
-
-        return jo;
+        return r;
     }
 
 }
