@@ -25,5 +25,6 @@ if [ -f $akita_home/bin/canal.pid ] ; then
 fi
 
 # 启动服务
-$JAVA -jar Akita.jar -p $akita_home/conf/akita.properties 1>>$akita_home/logs/canal.log 2>&1 &
+mkdir -p $akita_home/logs
+$JAVA -jar Akita.jar -p $akita_home/conf/akita.properties 1>>$akita_home/logs/akita.log 2>&1 &
 echo $! > $akita_home/bin/canal.pid
