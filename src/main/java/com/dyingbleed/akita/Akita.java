@@ -33,6 +33,11 @@ public final class Akita implements Runnable {
 
     private AkitaSink sink;
 
+    /*
+     * 参数
+     * */
+
+    private volatile Boolean isRunning;
 
     /**
      * 创建 Akita 实例
@@ -83,8 +88,12 @@ public final class Akita implements Runnable {
          * 主循环
          * */
         logger.info("Akita 启动");
-        Boolean running = true;
-        while (running) {
+        isRunning = true;
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            isRunning = false;
+        }));
+
+        while (isRunning) {
             this.source.pull(1000, (key, value) -> {
                 try {
                     this.sink.push(key, value);
