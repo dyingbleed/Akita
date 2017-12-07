@@ -4,6 +4,7 @@ import com.alibaba.otter.canal.client.CanalConnector;
 import com.alibaba.otter.canal.client.CanalConnectors;
 import com.alibaba.otter.canal.protocol.CanalEntry.*;
 import com.alibaba.otter.canal.protocol.Message;
+import com.alibaba.otter.canal.protocol.exception.CanalClientException;
 import com.dyingbleed.akita.source.AkitaSource;
 import com.dyingbleed.akita.source.AkitaSourceCallback;
 import com.dyingbleed.akita.utils.EntryUtils;
@@ -26,6 +27,9 @@ public class CanalSource implements AkitaSource {
      * */
 
     private static final String SERVER_SEPERATOR = ",";
+
+    // 连续异常重启次数
+    private static final int RETRY_TIMES = 5;
 
     private static final Logger logger = LoggerFactory.getLogger(CanalSource.class);
 
@@ -103,24 +107,35 @@ public class CanalSource implements AkitaSource {
 
     @Override
     public void pull(int i, AkitaSourceCallback callback) {
-        Message message = canalConnector.getWithoutAck(i);
-        long messageId = message.getId();
+        long messageId = -1;
 
-        if (messageId != -1 && message.getEntries().size() > 0) {
-            logger.info("收到 Canal Server 消息 {}", messageId);
-            for (Entry entry: message.getEntries()) {
-                if (entry.getEntryType() == EntryType.TRANSACTIONBEGIN || entry.getEntryType() == EntryType.TRANSACTIONEND) continue;
+        try {
+            Message message = canalConnector.getWithoutAck(i);
+            messageId = message.getId();
 
-                try {
+            if (messageId != -1 && message.getEntries().size() > 0) {
+                logger.info("收到 Canal Server 消息 {}", messageId);
+                for (Entry entry: message.getEntries()) {
+                    if (entry.getEntryType() == EntryType.TRANSACTIONBEGIN || entry.getEntryType() == EntryType.TRANSACTIONEND) continue;
+
                     String key = entry.getHeader().getTableName();
-                    for (String value: EntryUtils.toJSON(entry)) callback.processEntry(key, value);
-                } catch (Exception e) {
-                    logger.error("CanalSource 处理信息失败", e);
+                    try {
+                        for (String value: EntryUtils.toJSON(entry)) callback.processEntry(key, value);
+                    } catch (Exception e) {
+                        logger.error("CanalSource 处理 Entiry 失败", e);
+                    }
                 }
             }
-        }
 
-        canalConnector.ack(messageId);
+            canalConnector.ack(messageId);
+        } catch (CanalClientException e) {
+            logger.error("CanalClient 异常，重启试试", e);
+            this.destroy();
+            this.init();
+        } catch (Exception e) {
+            logger.error("CanalSource 处理信息失败，数据回滚", e);
+            if (messageId != -1) canalConnector.rollback(messageId);
+        }
     }
 
     @Override
