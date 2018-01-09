@@ -1,17 +1,19 @@
 package com.dyingbleed.akita.actor
 
 import java.net.InetSocketAddress
-import java.util.{List, Timer, TimerTask}
+import java.util.List
 
-import akka.actor.{Actor, ActorLogging}
+import akka.actor.{Actor, ActorLogging, Timers}
 import com.alibaba.otter.canal.client.{CanalConnector, CanalConnectors}
 import com.alibaba.otter.canal.protocol.CanalEntry.EntryType
+import com.dyingbleed.akita.actor.CanalSourceActor.{StartTick, Tick, TickKey}
 import com.dyingbleed.akita.utils.EntryUtils
 import com.google.common.collect.Lists
 import com.google.common.net.HostAndPort
 import org.apache.commons.lang.StringUtils
 
 import scala.collection.JavaConversions._
+import scala.concurrent.duration._
 
 /**
   * Created by 李震 on 2017/12/23.
@@ -22,7 +24,7 @@ class CanalSourceActor(
                         username: String,
                         password: String,
                         filter: String
-                      ) extends Actor with ActorLogging {
+                      ) extends Actor with Timers with ActorLogging {
 
   private var canalConnector: CanalConnector = _
 
@@ -45,16 +47,19 @@ class CanalSourceActor(
         password
       )
     }
+
+    log.info("连接 Canal {}", servers)
     this.canalConnector.connect()
     this.canalConnector.subscribe(filter)
     this.canalConnector.rollback()
+    log.info("连接 Canal 成功")
 
-    // 启动定时器
-    (new Timer()).schedule(new TimerTask {
-      override def run(): Unit = {
-        process(canalConnector)
-      }
-    }, 1000l, 1000l)
+    timers.startSingleTimer(TickKey, StartTick, 1.second)
+  }
+
+
+  override def preRestart(reason: Throwable, message: Option[Any]): Unit = {
+    log.info("restart")
   }
 
   override def postStop(): Unit = {
@@ -63,13 +68,18 @@ class CanalSourceActor(
   }
 
   override def receive: Receive = {
-    case _ => {}
+    case StartTick => {
+      timers.startPeriodicTimer(TickKey, Tick, 1.second)
+    }
+    case Tick => {
+      fetch(this.canalConnector)
+    }
   }
 
-  private def process(canalConnector: CanalConnector): Unit = {
+  private def fetch(canalConnector: CanalConnector): Unit = {
     var messageId = -1l
 
-    val message = canalConnector.getWithoutAck(100)
+    val message = canalConnector.getWithoutAck(1000)
     messageId = message.getId
     if (messageId != -1 && message.getEntries.size > 0) {
       log.info("收到 Canal Server 消息 {}", messageId)
@@ -86,4 +96,14 @@ class CanalSourceActor(
       canalConnector.ack(messageId)
     }
   }
+}
+
+object CanalSourceActor {
+
+  private case object TickKey
+
+  private case object StartTick
+
+  private case object Tick
+
 }
