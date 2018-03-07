@@ -27,8 +27,8 @@ class KafkaSinkActor(servers: String, topic: String) extends Actor with ActorLog
   }
 
   override def receive: Receive = {
-    case message: String => {
-      val record = new ProducerRecord[String, String](topic, message)
+    case message: (String, String) => {
+      val record = new ProducerRecord[String, String](topic, message._1, message._2)
       this.kafkaProducer.send(record)
     }
   }

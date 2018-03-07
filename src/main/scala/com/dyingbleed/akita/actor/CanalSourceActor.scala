@@ -88,8 +88,10 @@ class CanalSourceActor(
         ) {
           // do nothing
         } else {
-          for (message <- EntryUtils.toJSON(entry)) {
-            context.actorSelection("../kafka") ! message
+          val tableName = entry.getHeader.getTableName
+
+          for (json <- EntryUtils.toJSON(entry)) {
+            context.actorSelection("../kafka") ! (tableName, json)
           }
         }
       }
