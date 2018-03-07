@@ -48,7 +48,7 @@
     </dependencies>
 
     <build>
-        <finalName>Akita</finalName>
+        <finalName>akita</finalName>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
