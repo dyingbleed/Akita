@@ -10,7 +10,7 @@ import com.dyingbleed.akita.actor.{CanalSourceActor, KafkaSinkActor}
   */
 class Akita(properties: Properties) extends Runnable {
 
-  private var isRunner = true
+  private @volatile var isRunner = true
 
   override def run(): Unit = {
     val actorSystem = ActorSystem.create()
