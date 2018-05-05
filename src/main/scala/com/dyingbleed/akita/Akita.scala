@@ -2,47 +2,58 @@ package com.dyingbleed.akita
 
 import java.util.Properties
 
-import akka.actor.{ActorSystem, Props}
-import com.dyingbleed.akita.actor.{CanalSourceActor, KafkaSinkActor}
+import scala.concurrent.duration._
+import akka.NotUsed
+import akka.actor.ActorSystem
+import akka.stream.{ActorMaterializer}
+import akka.stream.scaladsl.{RestartSink, RestartSource, Sink, Source}
+import com.dyingbleed.akita.stream.{CanalSource, KafkaSink}
 
 /**
   * Created by 李震 on 2017/12/23.
   */
 class Akita(properties: Properties) extends Runnable {
 
-  private @volatile var isRunner = true
-
   override def run(): Unit = {
-    val actorSystem = ActorSystem.create()
 
-    actorSystem.actorOf(Props(
-      classOf[KafkaSinkActor],
-      properties.getProperty("kafka.servers"),
-      properties.getProperty("kafka.topic")
-    ), "kafka")
-    actorSystem.actorOf(Props(
-      classOf[CanalSourceActor],
-      properties.getProperty("canal.servers"),
-      properties.getProperty("canal.destination", "akita"),
-      properties.getProperty("canal.username", ""),
-      properties.getProperty("canal.password", ""),
-      properties.getProperty("canal.filter", ".*\\..*")
-
-    ), "canal")
-
+    implicit val system: ActorSystem = ActorSystem("Akita")
     Runtime.getRuntime.addShutdownHook(new Thread() {
-
       override def run(): Unit = {
-        isRunner = false
+        system.terminate()
       }
-
     })
-    // 主循环
-    while (this.isRunner) {
-      Thread.sleep(1000)
+
+    implicit val materializer: ActorMaterializer = ActorMaterializer()
+
+    val source: Source[String, NotUsed] = RestartSource.withBackoff(
+      minBackoff = 1.seconds,
+      maxBackoff = 5.seconds,
+      randomFactor = 0.2
+    ) { () => {
+        Source.fromGraph(new CanalSource(
+          properties.getProperty("canal.servers"),
+          properties.getProperty("canal.destination", "akita"),
+          properties.getProperty("canal.username", ""),
+          properties.getProperty("canal.password", ""),
+          properties.getProperty("canal.filter", ".*\\..*")
+        ))
+      }
     }
 
-    actorSystem.terminate()
+    val sink: Sink[String, NotUsed] = RestartSink.withBackoff(
+      minBackoff = 1.seconds,
+      maxBackoff = 5.seconds,
+      randomFactor = 0.2
+    ) { () => {
+        Sink.fromGraph(new KafkaSink(
+          properties.getProperty("kafka.servers"),
+          properties.getProperty("kafka.topic")
+        ))
+      }
+    }
+
+    source.runWith(sink)
+
   }
 
 }

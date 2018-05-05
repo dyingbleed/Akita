@@ -8,18 +8,29 @@
     <artifactId>akita</artifactId>
     <version>1.0.0</version>
 
+    <properties>
+        <akka.version>2.5.8</akka.version>
+        <canal.client.version>1.0.22</canal.client.version>
+        <kafka.client.version>0.9.0.1</kafka.client.version>
+    </properties>
+
     <dependencies>
         <!-- Akka -->
         <dependency>
             <groupId>com.typesafe.akka</groupId>
             <artifactId>akka-actor_2.11</artifactId>
-            <version>2.5.8</version>
+            <version>${akka.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.typesafe.akka</groupId>
+            <artifactId>akka-stream_2.11</artifactId>
+            <version>${akka.version}</version>
         </dependency>
         <!-- Ali Canal -->
         <dependency>
             <groupId>com.alibaba.otter</groupId>
             <artifactId>canal.client</artifactId>
-            <version>1.0.22</version>
+            <version>${canal.client.version}</version>
             <exclusions>
                 <exclusion>
                     <groupId>com.google.guava</groupId>
@@ -31,7 +42,7 @@
         <dependency>
             <groupId>org.apache.kafka</groupId>
             <artifactId>kafka-clients</artifactId>
-            <version>0.9.0.1</version>
+            <version>${kafka.client.version}</version>
         </dependency>
         <!-- Apache Commons -->
         <dependency>
