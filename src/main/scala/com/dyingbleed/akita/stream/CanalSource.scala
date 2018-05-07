@@ -16,6 +16,14 @@ import scala.collection.JavaConverters._
 import scala.collection.mutable
 
 /**
+  * Canal Source
+  *
+  * @param servers  Canal 服务地址
+  * @param destination  Canal 服务部署的实例
+  * @param username  用户名
+  * @param password  密码
+  * @param filter  schema 过滤
+  *
   * Created by 李震 on 2018/5/5.
   */
 class CanalSource(
@@ -36,6 +44,8 @@ class CanalSource(
       private var canalConnector: CanalConnector = _
 
       private val messageQueue = new mutable.Queue[String]()
+
+      private var messageBatchId = -1l
 
       override def preStart(): Unit = {
         if (this.canalConnector == null) {
@@ -68,12 +78,15 @@ class CanalSource(
 
       setHandler(out, new OutHandler {
         override def onPull(): Unit = {
+          /*
+           * 1. 如果队列为空，从 canal 获取批量数据（最多 100 条），入队
+           * */
           while (messageQueue.isEmpty) {
-            val message = canalConnector.getWithoutAck(100)
-            val messageId = message.getId
-            log.info("收到 canal 消息 {} {}", messageId, message.getEntries.size)
-            if (messageId != -1 && message.getEntries.size > 0) {
-              for (entry <- message.getEntries.asScala) {
+            val messageBatch = canalConnector.getWithoutAck(100)
+            messageBatchId = messageBatch.getId
+            log.info("收到 canal 消息 {}", messageBatchId)
+            if (messageBatchId != -1) {
+              for (entry <- messageBatch.getEntries.asScala) {
                 if (entry.getEntryType == EntryType.TRANSACTIONBEGIN || entry.getEntryType == EntryType.TRANSACTIONEND
                 ) {
                   // do nothing
@@ -83,12 +96,19 @@ class CanalSource(
                   }
                 }
               }
-              canalConnector.ack(messageId)
             }
           }
 
+          /*
+           * 2. 出队，推送到出口
+           * */
           val message = messageQueue.dequeue()
           push(out, message)
+
+          /*
+           * 3. 如果队列为空，即上次获取批量数据处理完毕，向 canal 确认
+           * */
+          if (messageQueue.isEmpty && messageBatchId != -1) canalConnector.ack(messageBatchId)
         }
       })
 

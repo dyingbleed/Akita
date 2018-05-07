@@ -7,6 +7,11 @@ import akka.stream.stage.{GraphStage, GraphStageLogic, InHandler, StageLogging}
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 
 /**
+  * Kafka Sink
+  *
+  * @param servers Kafka Brocker 服务地址
+  * @param topic Kafka 主题
+  *
   * Created by 李震 on 2018/5/5.
   */
 class KafkaSink(servers: String, topic: String) extends GraphStage[SinkShape[String]] {
