@@ -18,21 +18,11 @@ import scala.collection.mutable
 /**
   * Canal Source
   *
-  * @param servers  Canal 服务地址
-  * @param destination  Canal 服务部署的实例
-  * @param username  用户名
-  * @param password  密码
-  * @param filter  schema 过滤
+  * @param args Canal 参数
   *
   * Created by 李震 on 2018/5/5.
   */
-class CanalSource(
-                   servers: String,
-                   destination: String,
-                   username: String,
-                   password: String,
-                   filter: String
-                 ) extends GraphStage[SourceShape[String]] {
+class CanalSource(args: CanalArgs) extends GraphStage[SourceShape[String]] {
 
   val out: Outlet[String] = Outlet("canal.out")
 
@@ -49,28 +39,28 @@ class CanalSource(
 
       override def preStart(): Unit = {
         if (this.canalConnector == null) {
-          this.canalConnector = if (servers.contains(",")) {
+          this.canalConnector = if (args.servers.contains(",")) {
             // 集群模式
             val hosts: util.LinkedList[InetSocketAddress] = Lists.newLinkedList()
-            for (server <- StringUtils.split(servers, ",")) {
+            for (server <- StringUtils.split(args.servers, ",")) {
               val hostAndPort = HostAndPort.fromString(server)
               hosts.add(new InetSocketAddress(hostAndPort.getHostText, hostAndPort.getPortOrDefault(11111)))
             }
-            CanalConnectors.newClusterConnector(hosts, destination, username, password)
+            CanalConnectors.newClusterConnector(hosts, args.destination, args.username, args.password)
           } else {
             // 单机模式
-            val hostAndPort: HostAndPort = HostAndPort.fromString(servers)
+            val hostAndPort: HostAndPort = HostAndPort.fromString(args.servers)
             CanalConnectors.newSingleConnector(
               new InetSocketAddress(hostAndPort.getHostText, hostAndPort.getPortOrDefault(11111)),
-              destination,
-              username,
-              password
+              args.destination,
+              args.username,
+              args.password
             )
           }
 
-          log.info("连接 canal {}", servers)
+          log.info("连接 canal")
           this.canalConnector.connect()
-          this.canalConnector.subscribe(filter)
+          this.canalConnector.subscribe(args.filter)
           this.canalConnector.rollback()
           log.info("连接 canal 成功")
         }

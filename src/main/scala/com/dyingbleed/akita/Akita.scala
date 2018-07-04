@@ -5,14 +5,15 @@ import java.util.Properties
 import scala.concurrent.duration._
 import akka.NotUsed
 import akka.actor.ActorSystem
-import akka.stream.{ActorMaterializer}
+import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{RestartSink, RestartSource, Sink, Source}
-import com.dyingbleed.akita.stream.{CanalSource, KafkaSink}
+import com.dyingbleed.akita.AkitaSinkType.{flume, kafka}
+import com.dyingbleed.akita.stream._
 
 /**
   * Created by 李震 on 2017/12/23.
   */
-class Akita(properties: Properties) extends Runnable {
+class Akita(properties: Properties, sinkType: AkitaSinkType) extends Runnable {
 
   override def run(): Unit = {
 
@@ -25,41 +26,52 @@ class Akita(properties: Properties) extends Runnable {
 
     implicit val materializer: ActorMaterializer = ActorMaterializer()
 
-    val source: Source[String, NotUsed] = RestartSource.withBackoff(
-      minBackoff = 1.seconds,
-      maxBackoff = 5.seconds,
-      randomFactor = 0.2
-    ) { () => {
-        Source.fromGraph(new CanalSource(
-          properties.getProperty("canal.servers"),
-          properties.getProperty("canal.destination", "akita"),
-          properties.getProperty("canal.username", ""),
-          properties.getProperty("canal.password", ""),
-          properties.getProperty("canal.filter", ".*\\..*")
-        ))
-      }
+    val source: Source[String, NotUsed] = canalSource
+    val sink: Sink[String, NotUsed] = sinkType match {
+      case kafka => kafkaSink
+      case flume => flumeSink
     }
-
-    val sink: Sink[String, NotUsed] = RestartSink.withBackoff(
-      minBackoff = 1.seconds,
-      maxBackoff = 5.seconds,
-      randomFactor = 0.2
-    ) { () => {
-        Sink.fromGraph(new KafkaSink(
-          properties.getProperty("kafka.servers"),
-          properties.getProperty("kafka.topic")
-        ))
-      }
-    }
-
     source.runWith(sink)
 
+  }
+
+  private def canalSource: Source[String, NotUsed] = {
+    RestartSource.withBackoff(
+      minBackoff = 1.seconds,
+      maxBackoff = 5.seconds,
+      randomFactor = 0.2
+    ) { () => {
+        Source.fromGraph(new CanalSource(CanalArgs(properties)))
+      }
+    }
+  }
+
+  private def kafkaSink: Sink[String, NotUsed] = {
+    RestartSink.withBackoff(
+      minBackoff = 1.seconds,
+      maxBackoff = 5.seconds,
+      randomFactor = 0.2
+    ) { () => {
+        Sink.fromGraph(new KafkaSink(KafkaArgs.apply(properties)))
+      }
+    }
+  }
+
+  private def flumeSink: Sink[String, NotUsed] = {
+    RestartSink.withBackoff(
+      minBackoff = 1.seconds,
+      maxBackoff = 5.seconds,
+      randomFactor = 0.2
+    ) { () => {
+        Sink.fromGraph(new FlumeSink(FlumeArgs(properties)))
+      }
+    }
   }
 
 }
 
 object Akita {
 
-  def apply(properties: Properties): Akita = new Akita(properties)
+  def apply(properties: Properties, sinkType: AkitaSinkType): Akita = new Akita(properties, sinkType)
 
 }

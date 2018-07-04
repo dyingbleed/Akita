@@ -9,12 +9,11 @@ import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 /**
   * Kafka Sink
   *
-  * @param servers Kafka Brocker 服务地址
-  * @param topic Kafka 主题
+  * @param args Kafka 参数
   *
   * Created by 李震 on 2018/5/5.
   */
-class KafkaSink(servers: String, topic: String) extends GraphStage[SinkShape[String]] {
+class KafkaSink(args: KafkaArgs) extends GraphStage[SinkShape[String]] {
 
   val in: Inlet[String] = Inlet("kafka.in")
 
@@ -28,11 +27,11 @@ class KafkaSink(servers: String, topic: String) extends GraphStage[SinkShape[Str
       override def preStart(): Unit = {
         if (this.kafkaProducer == null) {
           val properties = new Properties
-          properties.put("bootstrap.servers", servers)
+          properties.put("bootstrap.servers", args.servers)
           properties.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer")
           properties.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer")
 
-          log.info("连接 kafka {}", servers)
+          log.info("连接 kafka {}", args.servers)
           this.kafkaProducer = new KafkaProducer[String, String](properties)
           log.info("连接 kafka 成功")
 
@@ -43,7 +42,7 @@ class KafkaSink(servers: String, topic: String) extends GraphStage[SinkShape[Str
       setHandler(in, new InHandler {
         override def onPush(): Unit = {
           val message = grab(in)
-          val record = new ProducerRecord[String, String](topic, message)
+          val record = new ProducerRecord[String, String](args.topic, message)
           kafkaProducer.send(record)
           pull(in)
         }
