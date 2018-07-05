@@ -1,4 +1,4 @@
-package com.dyingbleed.akita.stream
+package com.dyingbleed.akita.sink
 
 import java.util.Properties
 

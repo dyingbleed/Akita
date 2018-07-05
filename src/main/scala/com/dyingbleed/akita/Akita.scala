@@ -7,13 +7,13 @@ import akka.NotUsed
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{RestartSink, RestartSource, Sink, Source}
-import com.dyingbleed.akita.AkitaSinkType.{flume, kafka}
-import com.dyingbleed.akita.stream._
+import com.dyingbleed.akita.sink.{FlumeArgs, FlumeSink, KafkaArgs, KafkaSink}
+import com.dyingbleed.akita.source.{CanalArgs, CanalMessage, CanalSource}
 
 /**
   * Created by 李震 on 2017/12/23.
   */
-class Akita(properties: Properties, sinkType: AkitaSinkType) extends Runnable {
+class Akita(properties: Properties, sinkType: Symbol) extends Runnable {
 
   override def run(): Unit = {
 
@@ -26,16 +26,16 @@ class Akita(properties: Properties, sinkType: AkitaSinkType) extends Runnable {
 
     implicit val materializer: ActorMaterializer = ActorMaterializer()
 
-    val source: Source[String, NotUsed] = canalSource
-    val sink: Sink[String, NotUsed] = sinkType match {
-      case kafka => kafkaSink
-      case flume => flumeSink
+    val source: Source[CanalMessage, NotUsed] = canalSource
+    val sink: Sink[CanalMessage, NotUsed] = sinkType match {
+      case 'kafka => kafkaSink
+      case 'flume => flumeSink
     }
     source.runWith(sink)
 
   }
 
-  private def canalSource: Source[String, NotUsed] = {
+  private def canalSource: Source[CanalMessage, NotUsed] = {
     RestartSource.withBackoff(
       minBackoff = 1.seconds,
       maxBackoff = 5.seconds,
@@ -46,7 +46,7 @@ class Akita(properties: Properties, sinkType: AkitaSinkType) extends Runnable {
     }
   }
 
-  private def kafkaSink: Sink[String, NotUsed] = {
+  private def kafkaSink: Sink[CanalMessage, NotUsed] = {
     RestartSink.withBackoff(
       minBackoff = 1.seconds,
       maxBackoff = 5.seconds,
@@ -57,7 +57,7 @@ class Akita(properties: Properties, sinkType: AkitaSinkType) extends Runnable {
     }
   }
 
-  private def flumeSink: Sink[String, NotUsed] = {
+  private def flumeSink: Sink[CanalMessage, NotUsed] = {
     RestartSink.withBackoff(
       minBackoff = 1.seconds,
       maxBackoff = 5.seconds,
@@ -72,6 +72,6 @@ class Akita(properties: Properties, sinkType: AkitaSinkType) extends Runnable {
 
 object Akita {
 
-  def apply(properties: Properties, sinkType: AkitaSinkType): Akita = new Akita(properties, sinkType)
+  def apply(properties: Properties, sinkType: Symbol): Akita = new Akita(properties, sinkType)
 
 }

@@ -1,4 +1,4 @@
-package com.dyingbleed.akita.stream
+package com.dyingbleed.akita.source
 
 import java.net.InetSocketAddress
 import java.util
@@ -7,7 +7,6 @@ import akka.stream.stage.{GraphStage, GraphStageLogic, OutHandler, StageLogging}
 import akka.stream.{Attributes, Outlet, SourceShape}
 import com.alibaba.otter.canal.client.{CanalConnector, CanalConnectors}
 import com.alibaba.otter.canal.protocol.CanalEntry.EntryType
-import com.dyingbleed.akita.utils.EntryUtils
 import com.google.common.collect.Lists
 import com.google.common.net.HostAndPort
 import org.apache.commons.lang.StringUtils
@@ -22,18 +21,18 @@ import scala.collection.mutable
   *
   * Created by 李震 on 2018/5/5.
   */
-class CanalSource(args: CanalArgs) extends GraphStage[SourceShape[String]] {
+class CanalSource(args: CanalArgs) extends GraphStage[SourceShape[CanalMessage]] {
 
-  val out: Outlet[String] = Outlet("canal.out")
+  val out: Outlet[CanalMessage] = Outlet("canal.out")
 
-  override def shape: SourceShape[String] = SourceShape(out)
+  override def shape: SourceShape[CanalMessage] = SourceShape(out)
 
   override def createLogic(inheritedAttributes: Attributes): GraphStageLogic = {
     new GraphStageLogic(shape) with StageLogging {
 
       private var canalConnector: CanalConnector = _
 
-      private val messageQueue = new mutable.Queue[String]()
+      private val messageQueue = new mutable.Queue[CanalMessage]()
 
       private var messageBatchId = -1l
 
@@ -44,14 +43,14 @@ class CanalSource(args: CanalArgs) extends GraphStage[SourceShape[String]] {
             val hosts: util.LinkedList[InetSocketAddress] = Lists.newLinkedList()
             for (server <- StringUtils.split(args.servers, ",")) {
               val hostAndPort = HostAndPort.fromString(server)
-              hosts.add(new InetSocketAddress(hostAndPort.getHostText, hostAndPort.getPortOrDefault(11111)))
+              hosts.add(new InetSocketAddress(hostAndPort.getHostText, hostAndPort.getPort))
             }
             CanalConnectors.newClusterConnector(hosts, args.destination, args.username, args.password)
           } else {
             // 单机模式
             val hostAndPort: HostAndPort = HostAndPort.fromString(args.servers)
             CanalConnectors.newSingleConnector(
-              new InetSocketAddress(hostAndPort.getHostText, hostAndPort.getPortOrDefault(11111)),
+              new InetSocketAddress(hostAndPort.getHostText, hostAndPort.getPort()),
               args.destination,
               args.username,
               args.password
@@ -81,8 +80,8 @@ class CanalSource(args: CanalArgs) extends GraphStage[SourceShape[String]] {
                 ) {
                   // do nothing
                 } else {
-                  for (json <- EntryUtils.toJSON(entry).asScala) {
-                    messageQueue.enqueue(json)
+                  for (rows <- CanalUtils.toJSON(entry)) {
+                    messageQueue.enqueue(rows)
                   }
                 }
               }

@@ -24,7 +24,7 @@ object Application extends App {
    * 1. Akita 参数
    * */
   var properties: Properties = null
-  var sinkType: AkitaSinkType = null
+  var sinkType: Symbol = null
 
   /*
    * 2. 加载配置文件
@@ -42,14 +42,7 @@ object Application extends App {
    * 3. 设置 Sink 类型
    * */
   if (cmd.hasOption("s")) {
-    try {
-      sinkType = AkitaSinkType.valueOf(cmd.getOptionValue("s"))
-    } catch {
-      case e: IllegalArgumentException => {
-        val formatter = new HelpFormatter
-        formatter.printHelp("-s", options)
-      }
-    }
+    sinkType = Symbol(cmd.getOptionValue("s"))
   } else {
     val formatter = new HelpFormatter
     formatter.printHelp("-s", options)
@@ -58,7 +51,7 @@ object Application extends App {
   /*
    * 4. 启动 Akita
    * */
-  Akita.apply(properties, sinkType).run()
+  Akita(properties, sinkType).run()
 
 
   private def loadProperties(path: String) = {

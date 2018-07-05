@@ -1,4 +1,4 @@
-package com.dyingbleed.akita.stream
+package com.dyingbleed.akita.source
 
 import java.util.Properties
 

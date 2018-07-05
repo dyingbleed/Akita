@@ -1,9 +1,10 @@
-package com.dyingbleed.akita.stream
+package com.dyingbleed.akita.sink
 
 import java.util.Properties
 
-import akka.stream.{Attributes, Inlet, SinkShape}
 import akka.stream.stage.{GraphStage, GraphStageLogic, InHandler, StageLogging}
+import akka.stream.{Attributes, Inlet, SinkShape}
+import com.dyingbleed.akita.source.CanalMessage
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
 
 /**
@@ -13,11 +14,11 @@ import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord}
   *
   * Created by 李震 on 2018/5/5.
   */
-class KafkaSink(args: KafkaArgs) extends GraphStage[SinkShape[String]] {
+class KafkaSink(args: KafkaArgs) extends GraphStage[SinkShape[CanalMessage]] {
 
-  val in: Inlet[String] = Inlet("kafka.in")
+  val in: Inlet[CanalMessage] = Inlet("kafka.in")
 
-  override def shape: SinkShape[String] = SinkShape(in)
+  override def shape: SinkShape[CanalMessage] = SinkShape(in)
 
   override def createLogic(inheritedAttributes: Attributes): GraphStageLogic = {
     new GraphStageLogic(shape) with StageLogging {
@@ -42,7 +43,7 @@ class KafkaSink(args: KafkaArgs) extends GraphStage[SinkShape[String]] {
       setHandler(in, new InHandler {
         override def onPush(): Unit = {
           val message = grab(in)
-          val record = new ProducerRecord[String, String](args.topic, message)
+          val record = new ProducerRecord[String, String](args.topic, message.tableName, message.row)
           kafkaProducer.send(record)
           pull(in)
         }
