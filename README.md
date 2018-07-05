@@ -63,7 +63,3 @@ bin/stop-akita.sh
   "age": 18
 }
 ```
-
- - _TABLENAME  表名
- - _EVENT  操作，INSERT UPDATE DELETE
- - _SCHEMA  表结构
