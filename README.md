@@ -58,16 +58,9 @@ bin/stop-akita.sh
 
 ```json
 {
-  "_TABLENAME": "users",
-  "_EVENT":"INSERT",
-  "_SCHEMA":{
-    "name":"varchar(32)",
-    "sex":"char(1)",
-    "birthday":"date"
-  },
   "name":"Tom",
   "sex":"m",
-  "birthday":"1997-12-06"
+  "age": 18
 }
 ```
 
