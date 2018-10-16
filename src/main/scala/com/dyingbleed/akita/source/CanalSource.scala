@@ -73,7 +73,7 @@ class CanalSource(args: CanalArgs) extends GraphStage[SourceShape[CanalMessage]]
           while (messageQueue.isEmpty) {
             val messageBatch = canalConnector.getWithoutAck(100)
             messageBatchId = messageBatch.getId
-            log.info("收到 canal 消息 {}", messageBatchId)
+            log.debug("收到 canal 消息 {}", messageBatchId)
             if (messageBatchId != -1) {
               for (entry <- messageBatch.getEntries.asScala) {
                 if (entry.getEntryType == EntryType.TRANSACTIONBEGIN || entry.getEntryType == EntryType.TRANSACTIONEND
