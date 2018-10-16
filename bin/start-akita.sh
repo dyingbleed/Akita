@@ -1,6 +1,5 @@
 #!/bin/sh
 
-# Akita Home
 case "`uname`" in
     Linux)
 		bin_absolute_path=$(readlink -f $(dirname $0))
@@ -18,13 +17,24 @@ if [ -z "$JAVA" ] ; then
   JAVA=$(which java)
 fi
 
-# 检查 pid 文件
+# PID
 if [ -f $akita_home/bin/canal.pid ] ; then
-	echo "错误：服务已启动，请先停止之前的服务" 2>&2
+	echo "ERROR: Stop server first." 2>&2
     exit 1
 fi
 
-# 启动服务
-mkdir -p $akita_home/logs
-$JAVA -jar akita.jar -c $akita_home/conf/akita.properties -s $1 1>>$akita_home/logs/akita.log 2>&1 &
+# Start Server
+mkdir -p $akita_home/log
+$JAVA \
+  -Xmx512m \
+  -Xms256m \
+  -XX:+PrintGC \
+  -XX:+PrintGCDetails \
+  -XX:+PrintGCTimeStamps \
+  -XX:+PrintGCDateStamps \
+  -Xloggc:$akita_home/log/gc.log \
+  -Dcom.sun.management.jmxremote.port=11123 \
+  -Dcom.sun.management.jmxremote.authenticate=false \
+  -Dcom.sun.management.jmxremote.ssl=false \
+  -jar akita.jar -c $akita_home/conf/akita.properties -s $1 &
 echo $! > $akita_home/bin/canal.pid
